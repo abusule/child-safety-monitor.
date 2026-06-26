@@ -1,0 +1,24 @@
+{
+  "short_name": "SafetyMonitor",
+  "name": "Child Safety Monitor",
+  "description": "An interactive child activity monitor, content blocker, and location tracker sandbox with real-time parent controls.",
+  "icons": [
+    {
+      "src": "/icon.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.jpg",
+      "type": "image/jpeg",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "display": "standalone",
+  "orientation": "portrait"
+}
