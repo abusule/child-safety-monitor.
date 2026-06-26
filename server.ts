@@ -628,9 +628,11 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Child Safety Monitor backend running at http://0.0.0.0:${PORT}`);
-  });
+ const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Child Safety Monitor backend running at http://0.0.0.0:${PORT}`);
+});
 }
 
 startServer();
