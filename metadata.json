@@ -1,6 +1,8 @@
 {
-  "name": "Child Safety Monitor",
+  "name": "Remix: Child Safety Monitor",
   "description": "An interactive child activity monitor, content blocker, and location tracker sandbox with real-time parent controls.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

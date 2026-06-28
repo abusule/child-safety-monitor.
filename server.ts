@@ -36,95 +36,182 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
-// In-Memory Database for demonstration and real-time parent-child synchronization
-let state: MonitorState = {
-  screenTimeLimit: 120, // 2 hours
-  screenTimeUsed: 35,   // 35 minutes used
-  bedtimeStart: "21:00",
-  bedtimeEnd: "07:00",
-  isDeviceLocked: false,
-  currentLocation: {
-    name: "Home",
-    lat: 37.7749,
-    lng: -122.4194,
-    isSafe: true,
-    timestamp: new Date().toISOString(),
+import { EmergencyContact, ChildProfile, UserAccount } from "./src/types";
+
+// In-Memory Database for multi-user registrations, parent-child links, and real-time syncing
+let registeredParents = [
+  { email: "sarah@example.com", name: "Sarah (Mom)", password: "password" }
+];
+
+let loggedInParent: any = registeredParents[0];
+
+// Default emergency contacts list
+const defaultEmergencyContacts: EmergencyContact[] = [
+  { id: "c1", name: "Sarah (Mom)", relation: "Mother", phone: "555-0199", isPrimary: true },
+  { id: "c2", name: "David (Dad)", relation: "Father", phone: "555-0188" }
+];
+
+// Map of child profiles
+let childProfiles: { [id: string]: ChildProfile } = {
+  "leo": {
+    id: "leo",
+    name: "Leo",
+    age: 10,
+    pairingCode: "LEO123",
+    isPaired: true,
+    lastHeartbeat: new Date().toISOString(),
+    emergencyContacts: [...defaultEmergencyContacts],
+    state: {
+      screenTimeLimit: 120, // 2 hours
+      screenTimeUsed: 35,   // 35 minutes used
+      bedtimeStart: "21:00",
+      bedtimeEnd: "07:00",
+      isDeviceLocked: false,
+      currentLocation: {
+        name: "Home",
+        lat: 37.7749,
+        lng: -122.4194,
+        isSafe: true,
+        timestamp: new Date().toISOString(),
+      },
+      locationHistory: [
+        { id: "h1", name: "School", lat: 37.7891, lng: -122.4014, timestamp: new Date(Date.now() - 3600000 * 3).toISOString() },
+        { id: "h2", name: "Local Park", lat: 37.7699, lng: -122.4468, timestamp: new Date(Date.now() - 3600000 * 1.5).toISOString() },
+        { id: "h3", name: "Home", lat: 37.7749, lng: -122.4194, timestamp: new Date(Date.now() - 1200000).toISOString() }
+      ],
+      geofences: [
+        { id: "geo1", name: "Home Perimeter", lat: 37.7749, lng: -122.4194, radius: 150, isSafeZone: true },
+        { id: "geo2", name: "School Area", lat: 37.7891, lng: -122.4014, radius: 200, isSafeZone: true },
+        { id: "geo3", name: "Local Park", lat: 37.7699, lng: -122.4468, radius: 250, isSafeZone: true }
+      ],
+      blockedCategories: ["adult", "violence", "gambling", "bullying"],
+      blockedKeywords: ["buy weapon", "how to hack", "dark web", "cheat in exams"],
+      allowedApps: [
+        { id: "app1", name: "YouTube Kids", icon: "Youtube", isBlocked: false, category: "Entertainment", screenTimeUsed: 15 },
+        { id: "app2", name: "Minecraft", icon: "Gamepad", isBlocked: false, category: "Games", screenTimeUsed: 15 },
+        { id: "app3", name: "Duolingo", icon: "BookOpen", isBlocked: false, category: "Education", screenTimeUsed: 5 },
+        { id: "app4", name: "TikTok Kids", icon: "MessageSquare", isBlocked: true, category: "Social", screenTimeUsed: 0 }
+      ],
+      activityLogs: [
+        {
+          id: "log1",
+          timestamp: new Date(Date.now() - 5400000).toISOString(),
+          type: "web_visit",
+          content: "Opened Wikipedia page on Moon exploration",
+          appOrSite: "wikipedia.org",
+          isBlocked: false,
+          severity: "info"
+        },
+        {
+          id: "log2",
+          timestamp: new Date(Date.now() - 4800000).toISOString(),
+          type: "web_search",
+          content: "how to solve quadratic equations",
+          isBlocked: false,
+          severity: "info"
+        },
+        {
+          id: "log3",
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          type: "web_search",
+          content: "play intense gun shooting games free unblocked",
+          isBlocked: true,
+          blockReason: "Contains violent weapon query and unblocked game request",
+          severity: "danger",
+          aiAnalysis: "AI flagged this query because it matches the configured 'violence' restrictions and attempts to bypass schools filters."
+        },
+        {
+          id: "log4",
+          timestamp: new Date(Date.now() - 1800000).toISOString(),
+          type: "chat",
+          content: "Simulated chat: Hey, let's do the homework together!",
+          appOrSite: "Safe Chat",
+          isBlocked: false,
+          severity: "info"
+        }
+      ],
+      notifications: [
+        {
+          id: "n1",
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          title: "Content Blocked Alert",
+          message: "Blocked search query 'play intense gun shooting games free unblocked' on Chrome.",
+          type: "blocking",
+          isRead: false
+        },
+        {
+          id: "n2",
+          timestamp: new Date(Date.now() - 7200000).toISOString(),
+          title: "Safe Zone Exit",
+          message: "Child exited 'School Area' safe boundary.",
+          type: "geofence",
+          isRead: true
+        }
+      ],
+      emergencyContacts: [...defaultEmergencyContacts],
+      lastTimeSync: new Date().toISOString()
+    }
   },
-  locationHistory: [
-    { id: "h1", name: "School", lat: 37.7891, lng: -122.4014, timestamp: new Date(Date.now() - 3600000 * 3).toISOString() },
-    { id: "h2", name: "Local Park", lat: 37.7699, lng: -122.4468, timestamp: new Date(Date.now() - 3600000 * 1.5).toISOString() },
-    { id: "h3", name: "Home", lat: 37.7749, lng: -122.4194, timestamp: new Date(Date.now() - 1200000).toISOString() }
-  ],
-  geofences: [
-    { id: "geo1", name: "Home Perimeter", lat: 37.7749, lng: -122.4194, radius: 150, isSafeZone: true },
-    { id: "geo2", name: "School Area", lat: 37.7891, lng: -122.4014, radius: 200, isSafeZone: true },
-    { id: "geo3", name: "Local Park", lat: 37.7699, lng: -122.4468, radius: 250, isSafeZone: true }
-  ],
-  blockedCategories: ["adult", "violence", "gambling", "bullying"],
-  blockedKeywords: ["buy weapon", "how to hack", "dark web", "cheat in exams"],
-  allowedApps: [
-    { id: "app1", name: "YouTube Kids", icon: "Youtube", isBlocked: false, category: "Entertainment", screenTimeUsed: 15 },
-    { id: "app2", name: "Minecraft", icon: "Gamepad", isBlocked: false, category: "Games", screenTimeUsed: 15 },
-    { id: "app3", name: "Duolingo", icon: "BookOpen", isBlocked: false, category: "Education", screenTimeUsed: 5 },
-    { id: "app4", name: "TikTok Kids", icon: "MessageSquare", isBlocked: true, category: "Social", screenTimeUsed: 0 }
-  ],
-  activityLogs: [
-    {
-      id: "log1",
-      timestamp: new Date(Date.now() - 5400000).toISOString(),
-      type: "web_visit",
-      content: "Opened Wikipedia page on Moon exploration",
-      appOrSite: "wikipedia.org",
-      isBlocked: false,
-      severity: "info"
-    },
-    {
-      id: "log2",
-      timestamp: new Date(Date.now() - 4800000).toISOString(),
-      type: "web_search",
-      content: "how to solve quadratic equations",
-      isBlocked: false,
-      severity: "info"
-    },
-    {
-      id: "log3",
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      type: "web_search",
-      content: "play intense gun shooting games free unblocked",
-      isBlocked: true,
-      blockReason: "Contains violent weapon query and unblocked game request",
-      severity: "danger",
-      aiAnalysis: "AI flagged this query because it matches the configured 'violence' restrictions and attempts to bypass schools filters."
-    },
-    {
-      id: "log4",
-      timestamp: new Date(Date.now() - 1800000).toISOString(),
-      type: "chat",
-      content: "Simulated chat: Hey, let's do the homework together!",
-      appOrSite: "Safe Chat",
-      isBlocked: false,
-      severity: "info"
+  "emma": {
+    id: "emma",
+    name: "Emma",
+    age: 7,
+    pairingCode: "EMMA77",
+    isPaired: false,
+    emergencyContacts: [
+      { id: "c1", name: "Sarah (Mom)", relation: "Mother", phone: "555-0199", isPrimary: true }
+    ],
+    state: {
+      screenTimeLimit: 60, // 1 hour
+      screenTimeUsed: 10,
+      bedtimeStart: "20:00",
+      bedtimeEnd: "07:30",
+      isDeviceLocked: false,
+      currentLocation: {
+        name: "School Area",
+        lat: 37.7891,
+        lng: -122.4014,
+        isSafe: true,
+        timestamp: new Date().toISOString(),
+      },
+      locationHistory: [
+        { id: "lh_em1", name: "School Area", lat: 37.7891, lng: -122.4014, timestamp: new Date(Date.now() - 1800000).toISOString() }
+      ],
+      geofences: [
+        { id: "geo1", name: "Home Perimeter", lat: 37.7749, lng: -122.4194, radius: 150, isSafeZone: true },
+        { id: "geo2", name: "School Area", lat: 37.7891, lng: -122.4014, radius: 200, isSafeZone: true }
+      ],
+      blockedCategories: ["adult", "violence", "gambling", "bullying", "social_media"],
+      blockedKeywords: ["unblocked games", "scary videos"],
+      allowedApps: [
+        { id: "app1", name: "YouTube Kids", icon: "Youtube", isBlocked: false, category: "Entertainment", screenTimeUsed: 5 },
+        { id: "app3", name: "Duolingo", icon: "BookOpen", isBlocked: false, category: "Education", screenTimeUsed: 5 },
+        { id: "app4", name: "TikTok Kids", icon: "MessageSquare", isBlocked: true, category: "Social", screenTimeUsed: 0 }
+      ],
+      activityLogs: [
+        {
+          id: "log_em1",
+          timestamp: new Date().toISOString(),
+          type: "app_usage",
+          content: "Emma opened Duolingo",
+          appOrSite: "Duolingo",
+          isBlocked: false,
+          severity: "info"
+        }
+      ],
+      notifications: [],
+      emergencyContacts: [
+        { id: "c1", name: "Sarah (Mom)", relation: "Mother", phone: "555-0199", isPrimary: true }
+      ],
+      lastTimeSync: new Date().toISOString()
     }
-  ],
-  notifications: [
-    {
-      id: "n1",
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      title: "Content Blocked Alert",
-      message: "Blocked search query 'play intense gun shooting games free unblocked' on Chrome.",
-      type: "blocking",
-      isRead: false
-    },
-    {
-      id: "n2",
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      title: "Safe Zone Exit",
-      message: "Child exited 'School Area' safe boundary.",
-      type: "geofence",
-      isRead: true
-    }
-  ]
+  }
 };
+
+// Global activeState getter/setter for fallback support
+function getActiveState(): MonitorState {
+  return childProfiles["leo"] ? childProfiles["leo"].state : {} as MonitorState;
+}
 
 // Heuristic fallback filter when Gemini API is disabled
 function runFallbackContentFilter(text: string, categories: string[], customKeywords: string[]): AIAnalysisResult {
@@ -193,14 +280,243 @@ function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: num
   return R * c;
 }
 
+// API: Auth Routes
+app.post("/api/auth/register-parent", (req, res) => {
+  const { email, name, password } = req.body;
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: "Email, name, and password are required" });
+  }
+  const existing = registeredParents.find(p => p.email.toLowerCase() === email.toLowerCase());
+  if (existing) {
+    return res.status(400).json({ error: "Email is already registered" });
+  }
+  const newParent = { email, name, password };
+  registeredParents.push(newParent);
+  loggedInParent = newParent;
+  res.json({ success: true, parent: { email: newParent.email, name: newParent.name } });
+});
+
+app.post("/api/auth/login-parent", (req, res) => {
+  const { email, password } = req.body;
+  const parent = registeredParents.find(p => p.email.toLowerCase() === email.toLowerCase() && p.password === password);
+  if (!parent) {
+    return res.status(401).json({ error: "Invalid email or password" });
+  }
+  loggedInParent = parent;
+  res.json({ success: true, parent: { email: parent.email, name: parent.name } });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  loggedInParent = null;
+  res.json({ success: true });
+});
+
+// API: Parent Creating Child Profile
+app.post("/api/child/create", (req, res) => {
+  const { name, age } = req.body;
+  if (!name || !age) {
+    return res.status(400).json({ error: "Name and age are required" });
+  }
+  const id = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (childProfiles[id]) {
+    return res.status(400).json({ error: "A child with this name already exists" });
+  }
+  
+  const pairingCode = name.toUpperCase() + Math.floor(100 + Math.random() * 900);
+  
+  const newChild: ChildProfile = {
+    id,
+    name,
+    age: Number(age),
+    pairingCode,
+    isPaired: false,
+    emergencyContacts: [
+      { id: "c_p1", name: loggedInParent ? loggedInParent.name : "Sarah (Mom)", relation: "Mother", phone: "555-0199", isPrimary: true }
+    ],
+    state: {
+      screenTimeLimit: 120,
+      screenTimeUsed: 0,
+      bedtimeStart: "21:00",
+      bedtimeEnd: "07:00",
+      isDeviceLocked: false,
+      currentLocation: {
+        name: "Home",
+        lat: 37.7749,
+        lng: -122.4194,
+        isSafe: true,
+        timestamp: new Date().toISOString()
+      },
+      locationHistory: [
+        { id: "lh_init", name: "Home", lat: 37.7749, lng: -122.4194, timestamp: new Date().toISOString() }
+      ],
+      geofences: [
+        { id: `geo_${Date.now()}`, name: "Home Perimeter", lat: 37.7749, lng: -122.4194, radius: 150, isSafeZone: true }
+      ],
+      blockedCategories: ["adult", "violence", "gambling", "bullying"],
+      blockedKeywords: [],
+      allowedApps: [
+        { id: "app1", name: "YouTube Kids", icon: "Youtube", isBlocked: false, category: "Entertainment", screenTimeUsed: 0 },
+        { id: "app2", name: "Minecraft", icon: "Gamepad", isBlocked: false, category: "Games", screenTimeUsed: 0 },
+        { id: "app3", name: "Duolingo", icon: "BookOpen", isBlocked: false, category: "Education", screenTimeUsed: 0 }
+      ],
+      activityLogs: [
+        {
+          id: `log_create_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          type: "app_usage",
+          content: `Child account created for ${name} (Age ${age})`,
+          isBlocked: false,
+          severity: "info"
+        }
+      ],
+      notifications: [],
+      emergencyContacts: [
+        { id: "c_p1", name: loggedInParent ? loggedInParent.name : "Sarah (Mom)", relation: "Mother", phone: "555-0199", isPrimary: true }
+      ],
+      lastTimeSync: new Date().toISOString()
+    }
+  };
+  
+  childProfiles[id] = newChild;
+  res.json({ success: true, children: Object.values(childProfiles).map(c => ({ id: c.id, name: c.name, age: c.age, isPaired: c.isPaired, pairingCode: c.pairingCode })) });
+});
+
+// API: Update Emergency Contacts
+app.post("/api/child/update-contacts", (req, res) => {
+  const { childId, contacts } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId];
+  if (!child) {
+    return res.status(404).json({ error: "Child profile not found" });
+  }
+  if (!Array.isArray(contacts)) {
+    return res.status(400).json({ error: "Contacts must be an array" });
+  }
+  
+  child.emergencyContacts = contacts;
+  child.state.emergencyContacts = contacts;
+  
+  child.state.activityLogs.unshift({
+    id: `log_contacts_${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    type: "app_usage",
+    content: "Emergency contact settings updated by parent",
+    isBlocked: false,
+    severity: "info"
+  });
+  
+  res.json({ success: true, state: child.state, emergencyContacts: child.emergencyContacts });
+});
+
+// API: Device Pairing
+app.post("/api/child/pair", (req, res) => {
+  const { pairingCode } = req.body;
+  if (!pairingCode) {
+    return res.status(400).json({ error: "Pairing code is required" });
+  }
+  
+  const child = Object.values(childProfiles).find(c => c.pairingCode.toUpperCase() === pairingCode.trim().toUpperCase());
+  if (!child) {
+    return res.status(404).json({ error: "Pairing code not found. Please verify code on Parent Dashboard." });
+  }
+  
+  child.isPaired = true;
+  child.lastHeartbeat = new Date().toISOString();
+  child.state.lastTimeSync = new Date().toISOString();
+  
+  child.state.activityLogs.unshift({
+    id: `log_pair_${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    type: "app_usage",
+    content: `Device successfully paired to child account: ${child.name}`,
+    isBlocked: false,
+    severity: "info"
+  });
+  
+  res.json({ success: true, childId: child.id, state: child.state, childName: child.name });
+});
+
+// API: Trigger SOS Panic Alert
+app.post("/api/child/sos", (req, res) => {
+  const { childId } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId];
+  if (!child) {
+    return res.status(404).json({ error: "Child profile not found" });
+  }
+  
+  const state = child.state;
+  
+  // Create SOS Log
+  const newLog: ActivityLog = {
+    id: `log_sos_${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    type: "location",
+    content: `🚨 PANIC SOS ACTIVE: Child triggered distress alarm from "${state.currentLocation.name}"!`,
+    isBlocked: true,
+    severity: "danger"
+  };
+  state.activityLogs.unshift(newLog);
+  
+  // Create critical alert notification
+  const sosAlert: AlertNotification = {
+    id: `n_sos_${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    title: "🚨 CRITICAL EMERGENCY SOS PANIC ALARM",
+    message: `Your child ${child.name} has triggered a critical panic SOS alarm from their device! Live location: "${state.currentLocation.name}". Respond immediately!`,
+    type: "system",
+    isRead: false
+  };
+  state.notifications.unshift(sosAlert);
+  
+  res.json({ success: true, state });
+});
+
+// API: Time & Sync Endpoint
+app.post("/api/child/sync-time", (req, res) => {
+  const { childId } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId];
+  if (!child) {
+    return res.status(404).json({ error: "Child profile not found" });
+  }
+  
+  child.lastHeartbeat = new Date().toISOString();
+  child.state.lastTimeSync = new Date().toISOString();
+  
+  res.json({ 
+    success: true, 
+    serverTime: new Date().toISOString(), 
+    state: child.state 
+  });
+});
+
 // API: Get State
 app.get("/api/state", (req, res) => {
-  res.json({ ...state, isGeminiEnabled });
+  const childId = (req.query.childId as string) || "leo";
+  const child = childProfiles[childId] || childProfiles["leo"];
+  const state = child.state;
+  
+  res.json({ 
+    ...state, 
+    isGeminiEnabled,
+    childId: child.id,
+    childName: child.name,
+    childAge: child.age,
+    isPaired: child.isPaired,
+    pairingCode: child.pairingCode,
+    emergencyContacts: child.emergencyContacts,
+    children: Object.values(childProfiles).map(c => ({ id: c.id, name: c.name, age: c.age, isPaired: c.isPaired, pairingCode: c.pairingCode })),
+    loggedInParent
+  });
 });
 
 // API: Update Rules
 app.post("/api/state/update-rules", (req, res) => {
-  const { screenTimeLimit, bedtimeStart, bedtimeEnd, blockedCategories, blockedKeywords } = req.body;
+  const { childId, screenTimeLimit, bedtimeStart, bedtimeEnd, blockedCategories, blockedKeywords } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
   
   if (typeof screenTimeLimit === "number") state.screenTimeLimit = screenTimeLimit;
   if (bedtimeStart) state.bedtimeStart = bedtimeStart;
@@ -213,7 +529,7 @@ app.post("/api/state/update-rules", (req, res) => {
     id: `log_sys_${Date.now()}`,
     timestamp: new Date().toISOString(),
     type: "app_usage",
-    content: "Parent updated monitoring rules & configurations",
+    content: `Parent updated monitoring rules & bedtime configurations for ${child.name}`,
     isBlocked: false,
     severity: "info"
   };
@@ -224,7 +540,11 @@ app.post("/api/state/update-rules", (req, res) => {
 
 // API: Remote Lock
 app.post("/api/state/lock-device", (req, res) => {
-  const { isLocked } = req.body;
+  const { childId, isLocked } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
+  
   state.isDeviceLocked = !!isLocked;
 
   // Add Log
@@ -232,7 +552,7 @@ app.post("/api/state/lock-device", (req, res) => {
     id: `log_lock_${Date.now()}`,
     timestamp: new Date().toISOString(),
     type: "app_usage",
-    content: `Parent remotely ${state.isDeviceLocked ? "LOCKED" : "UNLOCKED"} the child's device`,
+    content: `Parent remotely ${state.isDeviceLocked ? "LOCKED" : "UNLOCKED"} ${child.name}'s device`,
     isBlocked: false,
     severity: state.isDeviceLocked ? "warning" : "info"
   };
@@ -243,7 +563,7 @@ app.post("/api/state/lock-device", (req, res) => {
     id: `n_lock_${Date.now()}`,
     timestamp: new Date().toISOString(),
     title: state.isDeviceLocked ? "Device Remotely Locked" : "Device Remotely Unlocked",
-    message: `Your command to ${state.isDeviceLocked ? "lock" : "unlock"} the child's device was successfully executed in real time.`,
+    message: `Your command to ${state.isDeviceLocked ? "lock" : "unlock"} ${child.name}'s device was successfully executed in real time.`,
     type: "system",
     isRead: false
   };
@@ -254,6 +574,11 @@ app.post("/api/state/lock-device", (req, res) => {
 
 // API: Tick screen time
 app.post("/api/state/tick-screentime", (req, res) => {
+  const { childId } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
+
   if (state.screenTimeUsed < state.screenTimeLimit) {
     state.screenTimeUsed += 1;
     
@@ -263,7 +588,7 @@ app.post("/api/state/tick-screentime", (req, res) => {
         id: `n_screentime_${Date.now()}`,
         timestamp: new Date().toISOString(),
         title: "Screen Time Exceeded",
-        message: `Child has reached the daily limit of ${state.screenTimeLimit} minutes. Access to apps has been auto-restricted.`,
+        message: `${child.name} has reached the daily limit of ${state.screenTimeLimit} minutes. Access to apps has been auto-restricted.`,
         type: "screentime",
         isRead: false
       };
@@ -273,7 +598,7 @@ app.post("/api/state/tick-screentime", (req, res) => {
         id: `log_screentime_${Date.now()}`,
         timestamp: new Date().toISOString(),
         type: "app_usage",
-        content: "Daily screen time limit reached. Standard apps locked.",
+        content: `Daily screen time limit reached for ${child.name}. Standard apps locked.`,
         isBlocked: true,
         severity: "danger"
       };
@@ -285,13 +610,18 @@ app.post("/api/state/tick-screentime", (req, res) => {
 
 // API: Reset screen time
 app.post("/api/state/reset-screentime", (req, res) => {
+  const { childId } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
+  
   state.screenTimeUsed = 0;
   
   const alertLog: ActivityLog = {
     id: `log_screentime_reset_${Date.now()}`,
     timestamp: new Date().toISOString(),
     type: "app_usage",
-    content: "Parent reset daily screen time counter.",
+    content: `Parent reset daily screen time counter for ${child.name}.`,
     isBlocked: false,
     severity: "info"
   };
@@ -302,7 +632,10 @@ app.post("/api/state/reset-screentime", (req, res) => {
 
 // API: Simulate Activity (Search / Web / Chat) with Real-Time Gemini content analysis
 app.post("/api/state/simulate-activity", async (req, res) => {
-  const { type, content, appOrSite } = req.body;
+  const { childId, type, content, appOrSite } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
 
   if (!content) {
     return res.status(400).json({ error: "Content is required" });
@@ -412,7 +745,7 @@ app.post("/api/state/simulate-activity", async (req, res) => {
       id: `n_block_${Date.now()}`,
       timestamp: new Date().toISOString(),
       title: `Content Blocked [${filterResult.category || "Filter"}]`,
-      message: `Child attempted ${type === "web_search" ? "search" : type === "chat" ? "sending chat" : "visiting site"} containing restricted content: "${content.substring(0, 50)}". Intercepted in real time.`,
+      message: `${child.name} attempted ${type === "web_search" ? "search" : type === "chat" ? "sending chat" : "visiting site"} containing restricted content: "${content.substring(0, 50)}". Intercepted in real time.`,
       type: "blocking",
       isRead: false
     };
@@ -433,7 +766,10 @@ app.post("/api/state/simulate-activity", async (req, res) => {
 
 // API: Simulate Location Change with geofencing analysis
 app.post("/api/state/simulate-location", (req, res) => {
-  const { name, lat, lng } = req.body;
+  const { childId, name, lat, lng } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
 
   if (!name || typeof lat !== "number" || typeof lng !== "number") {
     return res.status(400).json({ error: "Name, lat, and lng are required" });
@@ -499,7 +835,7 @@ app.post("/api/state/simulate-location", (req, res) => {
         id: `n_geo_${Date.now()}`,
         timestamp: new Date().toISOString(),
         title: "Unsafe Zone Boundary Alert",
-        message: `Child entered unapproved / potentially unsafe area: "${name}". Check live location.`,
+        message: `${child.name} entered unapproved / potentially unsafe area: "${name}". Check live location.`,
         type: "geofence",
         isRead: false
       };
@@ -509,7 +845,7 @@ app.post("/api/state/simulate-location", (req, res) => {
         id: `n_geo_${Date.now()}`,
         timestamp: new Date().toISOString(),
         title: "Geofence Safety Log",
-        message: `Child arrived safely at designated safe zone: "${name}" (${triggeredGeofenceName || "Designated Safe Zone"}).`,
+        message: `${child.name} arrived safely at designated safe zone: "${name}" (${triggeredGeofenceName || "Designated Safe Zone"}).`,
         type: "geofence",
         isRead: true
       };
@@ -522,7 +858,10 @@ app.post("/api/state/simulate-location", (req, res) => {
 
 // API: Toggle individual app blocks
 app.post("/api/state/toggle-app-block", (req, res) => {
-  const { appId, isBlocked } = req.body;
+  const { childId, appId, isBlocked } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
   
   const appIndex = state.allowedApps.findIndex(a => a.id === appId);
   if (appIndex !== -1) {
@@ -532,7 +871,7 @@ app.post("/api/state/toggle-app-block", (req, res) => {
       id: `log_app_${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: "app_usage",
-      content: `Parent remotely ${isBlocked ? "BLOCKED" : "UNBLOCKED"} access to the app "${state.allowedApps[appIndex].name}"`,
+      content: `Parent remotely ${isBlocked ? "BLOCKED" : "UNBLOCKED"} access to the app "${state.allowedApps[appIndex].name}" for ${child.name}`,
       isBlocked: false,
       severity: "info"
     };
@@ -544,7 +883,11 @@ app.post("/api/state/toggle-app-block", (req, res) => {
 
 // API: Add custom keyword
 app.post("/api/state/add-keyword", (req, res) => {
-  const { keyword } = req.body;
+  const { childId, keyword } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
+
   if (keyword && !state.blockedKeywords.includes(keyword)) {
     state.blockedKeywords.push(keyword);
   }
@@ -553,20 +896,33 @@ app.post("/api/state/add-keyword", (req, res) => {
 
 // API: Remove custom keyword
 app.post("/api/state/remove-keyword", (req, res) => {
-  const { keyword } = req.body;
+  const { childId, keyword } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
+
   state.blockedKeywords = state.blockedKeywords.filter(k => k !== keyword);
   res.json({ success: true, state });
 });
 
 // API: Clear Notifications
 app.post("/api/state/clear-notifications", (req, res) => {
+  const { childId } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  const state = child.state;
+
   state.notifications = state.notifications.map(n => ({ ...n, isRead: true }));
   res.json({ success: true, state });
 });
 
 // API: Reset Sandbox State to Factory Defaults
 app.post("/api/state/reset", (req, res) => {
-  state = {
+  const { childId } = req.body;
+  const targetId = childId || "leo";
+  const child = childProfiles[targetId] || childProfiles["leo"];
+  
+  child.state = {
     screenTimeLimit: 120,
     screenTimeUsed: 35,
     bedtimeStart: "21:00",
@@ -602,14 +958,17 @@ app.post("/api/state/reset", (req, res) => {
         id: "log_init",
         timestamp: new Date().toISOString(),
         type: "app_usage",
-        content: "Sandbox state reset by user",
+        content: `Sandbox state reset by parent for ${child.name}`,
         isBlocked: false,
         severity: "info"
       }
     ],
-    notifications: []
+    notifications: [],
+    emergencyContacts: child.emergencyContacts || [],
+    lastTimeSync: new Date().toISOString()
   };
-  res.json({ success: true, state });
+  
+  res.json({ success: true, state: child.state });
 });
 
 // Mount Vite middleware / static build pipeline
@@ -628,12 +987,9 @@ async function startServer() {
     });
   }
 
- const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Child Safety Monitor backend running at http://0.0.0.0:${PORT}`);
-});
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Child Safety Monitor backend running at http://0.0.0.0:${PORT}`);
+  });
 }
 
 startServer();
-
